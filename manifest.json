@@ -1,8 +1,0 @@
-{
-  "name": "Dinner Planner",
-  "short_name": "Dinner",
-  "start_url": "/dinner-planner/",
-  "display": "standalone",
-  "background_color": "#faf7f2",
-  "theme_color": "#faf7f2"
-}
