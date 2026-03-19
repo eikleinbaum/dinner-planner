@@ -63,12 +63,18 @@ export function useSync(defaultMeals) {
       const unsub = onValue(dbRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
+          // Existing household — respect saved state (even if empty)
           skipNextWrite.current = true;
-          setMeals(data.meals || defaultMeals);
+          const toArr = (v) => Array.isArray(v) ? v : Object.values(v || {});
+          const rawMeals = toArr(data.meals);
+          setMeals(rawMeals.map(m => ({
+            ...m,
+            variations: toArr(m.variations).map(v => ({ ...v, ingredients: toArr(v.ingredients) }))
+          })));
           setPlan(data.plan || {});
           setTemplates(data.templates || []);
         } else {
-          // First time — seed with defaults
+          // First time or all data cleared — seed with defaults
           setMeals(defaultMeals);
           setPlan({});
           setTemplates([]);
@@ -93,7 +99,7 @@ export function useSync(defaultMeals) {
       const raw = localStorage.getItem("dinner-planner");
       if (raw) {
         const data = JSON.parse(raw);
-        setMeals(data.meals || defaultMeals);
+        setMeals("meals" in data ? (data.meals || []) : defaultMeals);
         setPlan(data.plan || {});
         setTemplates(data.templates || []);
       } else {
@@ -117,7 +123,7 @@ export function useSync(defaultMeals) {
         return;
       }
       const dbRef = ref(db, "households/" + householdId);
-      set(dbRef, { meals: m, plan: p, templates: t }).catch(err => {
+      set(dbRef, { meals: m.length ? m : [], plan: p, templates: t, _ts: Date.now() }).catch(err => {
         console.error("Firebase write error:", err);
       });
     }

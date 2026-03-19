@@ -13,13 +13,13 @@ import { getDatabase } from "firebase/database";
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+ apiKey: "AIzaSyClEjVKoBzWEgv4Ec9BD2zpACBlqbDxJ8A",
+  authDomain: "dinner-planner-f9bc5.firebaseapp.com",
+  projectId: "dinner-planner-f9bc5",
+  storageBucket: "dinner-planner-f9bc5.firebasestorage.app",
+  messagingSenderId: "371208133123",
+  appId: "1:371208133123:web:89711b5b2082bee25d8c36",
+  measurementId: "G-65PJCDKSY9"
 };
 
 const app = initializeApp(firebaseConfig);

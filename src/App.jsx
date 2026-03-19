@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useSync } from "./useSync";
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const TABS = ["plan","meals","groceries"];
 
 const INITIAL_MEALS = [
   { id:"1", name:"Tacos", variations: [
@@ -61,6 +62,23 @@ export default function App() {
   const [newMealVarName, setNewMealVarName] = useState("");
   const [newMealIng, setNewMealIng] = useState("");
   const [showShare, setShowShare] = useState(false);
+  const [copied, setCopied] = useState(null);
+  const flashCopied = useCallback((key) => { setCopied(key); setTimeout(() => setCopied(c => c === key ? null : c), 1500); }, []);
+
+  const touchStart = useRef(null);
+  const switchTab = (dir) => {
+    const i = TABS.indexOf(tab);
+    const next = TABS[i + dir];
+    if (next) { setTab(next); setOpenDay(null); setPickedMeal(null); setAdding(false); }
+  };
+  const onTouchStart = (e) => { touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
+  const onTouchEnd = (e) => {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) switchTab(dx < 0 ? 1 : -1);
+    touchStart.current = null;
+  };
 
   if (!ready || !meals) {
     return (
@@ -152,7 +170,7 @@ export default function App() {
     Object.values(plan).forEach(entry => {
       if (entry.skip) return;
       const v = getVar(entry.mealId, entry.varId);
-      if (v) v.ingredients.forEach(i => { const k=i.toLowerCase(); items[k]=(items[k]||0)+1; });
+      if (v) (v.ingredients || []).forEach(i => { const k=i.toLowerCase(); items[k]=(items[k]||0)+1; });
     });
     return Object.entries(items).sort((a,b) => a[0].localeCompare(b[0]));
   };
@@ -189,9 +207,9 @@ export default function App() {
 
   const S = {
     wrap: { maxWidth:520, margin:"0 auto", padding:"0 16px 80px", minHeight:"100vh", background:"#faf7f2", fontFamily:"'DM Sans',sans-serif", color:"#3d3427" },
-    h1: { fontFamily:"'Playfair Display',serif", fontSize:28, fontWeight:700, textAlign:"center", paddingTop:24, marginBottom:2 },
-    sub: { textAlign:"center", color:"#a0937d", fontSize:13, marginBottom:16 },
-    tabs: { display:"flex", gap:3, background:"#f0ebe2", borderRadius:10, padding:3, marginBottom:18 },
+    h1: { fontFamily:"'Playfair Display',serif", fontSize:24, fontWeight:700, textAlign:"center", paddingTop:16, marginBottom:1 },
+    sub: { textAlign:"center", color:"#a0937d", fontSize:12, marginBottom:12 },
+    tabs: { display:"flex", gap:3, background:"#f0ebe2", borderRadius:10, padding:3, marginBottom:12 },
     tab: (a) => ({ flex:1, padding:"9px 0", border:"none", borderRadius:8, fontSize:13, fontWeight:600, fontFamily:"inherit", cursor:"pointer", background:a?"#fff":"transparent", color:a?"#3d3427":"#a0937d", boxShadow:a?"0 1px 3px rgba(0,0,0,0.07)":"none" }),
     card: { background:"#fff", borderRadius:12, padding:"12px 14px", marginBottom:6 },
     lbl: { fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.08em", color:"#a0937d", marginBottom:1 },
@@ -202,9 +220,9 @@ export default function App() {
   };
 
   return (
-    <div style={S.wrap}>
+    <div style={S.wrap} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
-      <h1 style={S.h1}>What's for Dinner</h1>
+      <h1 style={S.h1}>Dinner Plan</h1>
       <p style={S.sub}>
         {planned}/7 nights planned
         {synced && <span style={{marginLeft:8,fontSize:11,color:"#8baa7d"}}>● synced</span>}
@@ -212,7 +230,7 @@ export default function App() {
       </p>
 
       <div style={S.tabs}>
-        {["plan","meals","groceries"].map(t => (
+        {TABS.map(t => (
           <button key={t} style={S.tab(tab===t)} onClick={() => { setTab(t); setOpenDay(null); setPickedMeal(null); setAdding(false); }}>
             {t==="plan"?"This Week":t==="meals"?"Dinners":"Groceries"}
           </button>
@@ -230,15 +248,15 @@ export default function App() {
           const filtered = meals.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
           const skipLabels = { leftovers: "Leftovers", eating_out: "Eating Out", takeout: "Takeout" };
           return (
-            <div key={day} style={{ marginBottom:6 }}>
-              <div style={{...S.card, display:"flex", alignItems:"center", justifyContent:"space-between", border:open?"2px solid #c4956a":"2px solid transparent", marginBottom:0}}>
+            <div key={day} style={{ marginBottom:3 }}>
+              <div style={{...S.card, padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", border:open?"2px solid #c4956a":"2px solid transparent", marginBottom:0}}>
                 <div>
-                  <div style={S.lbl}>{day}</div>
+                  <div style={{...S.lbl,fontSize:9,marginBottom:0}}>{day}</div>
                   {isSkip
-                    ? <div style={{fontSize:15,fontWeight:500,color:"#a0937d",fontStyle:"italic"}}>{skipLabels[e.skip] || e.skip}</div>
+                    ? <div style={{fontSize:13,fontWeight:500,color:"#a0937d",fontStyle:"italic"}}>{skipLabels[e.skip] || e.skip}</div>
                     : vari
-                      ? <div><span style={{fontSize:15,fontWeight:500}}>{meal?.name}</span>{vari.name !== meal?.name && <span style={{fontSize:12,color:"#a0937d",marginLeft:6}}>— {vari.name}</span>}</div>
-                      : <div style={{fontSize:14,color:"#c8bfb1",fontStyle:"italic"}}>No dinner set</div>}
+                      ? <div><span style={{fontSize:13,fontWeight:500}}>{meal?.name}</span>{vari.name !== meal?.name && <span style={{fontSize:11,color:"#a0937d",marginLeft:6}}>— {vari.name}</span>}</div>
+                      : <div style={{fontSize:13,color:"#c8bfb1",fontStyle:"italic"}}>No dinner set</div>}
                 </div>
                 <div style={{display:"flex",gap:5,alignItems:"center"}}>
                   {e && <button onClick={()=>clearDay(day)} style={{background:"none",border:"none",color:"#c8bfb1",fontSize:17,cursor:"pointer"}}>&times;</button>}
@@ -287,7 +305,7 @@ export default function App() {
                     {m.variations.map(v=>(
                       <button key={v.id} onClick={()=>assignVar(day,m.id,v.id)} style={S.ddi}>
                         <div style={{fontWeight:500}}>{v.name}</div>
-                        <div style={{fontSize:11,color:"#b8ad9c",marginTop:1}}>{v.ingredients.join(", ")}</div>
+                        <div style={{fontSize:11,color:"#b8ad9c",marginTop:1}}>{(v.ingredients || []).join(", ")}</div>
                       </button>
                     ))}
                   </div>
@@ -310,12 +328,12 @@ export default function App() {
             </div>
           );
         })}
-        {planned>0 && <button style={{...S.btn("#fce8e8","#c47070"),width:"100%",padding:13,borderRadius:10,fontSize:14,marginTop:12}} onClick={()=>setPlan({})}>Reset Week</button>}
+        {planned>0 && <button style={{...S.btn("#fce8e8","#c47070"),width:"100%",padding:10,borderRadius:10,fontSize:13,marginTop:8}} onClick={()=>setPlan({})}>Reset Week</button>}
 
         {/* Templates */}
-        <div style={{...S.card, padding:14, marginTop:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom: (templates.length > 0 || savingTemplate) ? 10 : 0}}>
-            <div style={S.lbl}>Week Templates</div>
+        <div style={{...S.card, padding:"8px 12px", marginTop:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom: (templates.length > 0 || savingTemplate) ? 6 : 0}}>
+            <div style={{...S.lbl,fontSize:9,marginBottom:0}}>Week Templates</div>
             {planned > 0 && !savingTemplate && (
               <button style={S.btn("#f0ebe2","#8b7355")} onClick={()=>setSavingTemplate(true)}>Save This Week</button>
             )}
@@ -400,7 +418,7 @@ export default function App() {
               </>
             )}
           </div>
-          {meal.variations.map(v=>{
+          {(meal.variations || []).map(v=>{
             const isEditing = editVarKey === meal.id + ":" + v.id;
             return isEditing ? (
               <div key={v.id} style={{padding:"8px 0",borderTop:"1px solid #f0ebe2"}}>
@@ -415,7 +433,7 @@ export default function App() {
               <div key={v.id} style={{padding:"7px 0",borderTop:"1px solid #f0ebe2",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                 <div style={{flex:1,cursor:"pointer"}} onClick={()=>startEditVar(meal.id,v)}>
                   <div style={{fontSize:14,fontWeight:500}}>{v.name}</div>
-                  <div style={{fontSize:12,color:"#a0937d",lineHeight:1.4}}>{v.ingredients.join(" · ")}</div>
+                  <div style={{fontSize:12,color:"#a0937d",lineHeight:1.4}}>{(v.ingredients || []).join(" · ")}</div>
                 </div>
                 <div style={{display:"flex",gap:3,marginLeft:8,flexShrink:0}}>
                   <button style={{...S.btn("#f0ebe2","#8b7355"),fontSize:11}} onClick={()=>startEditVar(meal.id,v)}>Edit</button>
@@ -466,9 +484,9 @@ export default function App() {
               <div style={{display:"flex",gap:4}}>
                 {Object.keys(checkedItems).length > 0 && <button style={S.btn("#f0ebe2","#8b7355")} onClick={()=>setCheckedItems({})}>Uncheck All</button>}
                 <button style={S.btn("#f0ebe2","#8b7355")} onClick={()=>{
-                  const text=grocery().filter(([i])=>!checkedItems[i]).map(([i,ct])=>ct>1?`${i} (×${ct})`:i).join("\n");
-                  navigator.clipboard.writeText(text).catch(()=>{});
-                }}>Copy</button>
+                  const text=grocery().filter(([i])=>!checkedItems[i]).map(([i])=>i).join("\n");
+                  navigator.clipboard.writeText(text).then(()=>flashCopied("grocery")).catch(()=>{});
+                }}>{copied==="grocery"?"Copied!":"Copy"}</button>
               </div>
             </div>
             {grocery().filter(([i])=>!checkedItems[i]).map(([item,count])=>(
@@ -494,12 +512,12 @@ export default function App() {
       {/* Share */}
       <div style={{textAlign:"center",marginTop:24,marginBottom:12}}>
         <button style={{...S.btn("#f0ebe2","#8b7355"),fontSize:12}} onClick={()=>setShowShare(!showShare)}>
-          {showShare ? "Hide" : "Share with household"}
+          {showShare ? "Hide" : "Share with others"}
         </button>
       </div>
       {showShare && (
         <div style={{...S.card,padding:14,marginBottom:14}}>
-          <div style={{...S.lbl,marginBottom:6}}>Share this link with your partner</div>
+          <div style={{...S.lbl,marginBottom:6}}>Collaborate on your meal plan</div>
           <input
             readOnly
             value={shareUrl || ""}
@@ -507,13 +525,27 @@ export default function App() {
             style={{...S.inp,fontSize:12,color:"#3d3427",marginBottom:6}}
           />
           <button style={{...S.btn("#c4956a","#fff"),width:"100%",padding:8}} onClick={()=>{
-            if (shareUrl) navigator.clipboard.writeText(shareUrl).catch(()=>{});
-          }}>Copy Link</button>
-          <p style={{fontSize:11,color:"#a0937d",marginTop:8,lineHeight:1.5}}>
-            {synced
-              ? "Anyone with this link sees the same meal plan in real time."
-              : "Sharing works after you set up Firebase. See src/firebase.js for instructions. Until then, data is saved locally on this device only."}
+            if (shareUrl) navigator.clipboard.writeText(shareUrl).then(()=>flashCopied("share")).catch(()=>{});
+          }}>{copied==="share"?"Copied!":"Copy Link"}</button>
+          <p style={{fontSize:11,color:"#a0937d",marginTop:6,lineHeight:1.4}}>
+            Anyone with this link can view and edit your meal plan.
           </p>
+
+          <div style={{borderTop:"1px solid #f0ebe2",marginTop:10,paddingTop:10}}>
+            <div style={{...S.lbl,marginBottom:6}}>Share the app</div>
+            <input
+              readOnly
+              value={`${window.location.origin}${window.location.pathname}`}
+              onFocus={e => e.target.select()}
+              style={{...S.inp,fontSize:12,color:"#3d3427",marginBottom:6}}
+            />
+            <button style={{...S.btn("#f0ebe2","#8b7355"),width:"100%",padding:8}} onClick={()=>{
+              navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}`).then(()=>flashCopied("applink")).catch(()=>{});
+            }}>{copied==="applink"?"Copied!":"Copy Link"}</button>
+            <p style={{fontSize:11,color:"#a0937d",marginTop:6,lineHeight:1.4}}>
+              They'll get their own independent meal plan.
+            </p>
+          </div>
         </div>
       )}
     </div>
